@@ -125,7 +125,7 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 		camera = new Camera();
 		player = new PlayerActor(world, world.getSafeX(), world.getSafeY(), playerAnimations, this);
 		world.addActor(player);
-
+// :)
 // Create NPC with same animations as player
 		Actor npc = new Actor(world, world.getSafeX(), world.getSafeY() + 1, playerAnimations);
 		Dialogue dialogue = new Dialogue();
