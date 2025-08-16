@@ -52,13 +52,13 @@ public class OptionBoxController extends InputAdapter {
 		}
 		
 		if (keycode == Keys.UP) {
-			box.moveUp();
+			box.selectPrevious();
 			return true;
 		} else if (keycode == Keys.DOWN) {
-			box.moveDown();
+			box.selectNext();
 			return true;
 		} else if (keycode == Keys.X) {		// activate
-			actions.get(box.getIndex()).action();
+			actions.get(box.getSelectedIndex()).action();
 			box.setVisible(false);
 			return true;
 		}

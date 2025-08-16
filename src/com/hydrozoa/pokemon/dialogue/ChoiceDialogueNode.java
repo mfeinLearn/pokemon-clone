@@ -1,64 +1,33 @@
-package com.hydrozoa.pokemon.dialogue;
-
-import java.util.ArrayList;
-import java.util.List;
-
-// might need to extends !!
-public class ChoiceDialogueNode implements DialogueNode {
-
-	private String text;
-	private String[] labels;
-	private int[] nodeIds;
-
-	public ChoiceDialogueNode(String text, String[] labels, int[] nodeIds) {
-		this.text = text;
-		this.labels = labels;
-		this.nodeIds = nodeIds;
-	}
-
-	public String getText() {
-		return text;
-	}
-
-	public String[] getLabels() {
-		return labels;
-	}
-
-	public int[] getNodeIds() {
-		return nodeIds;
-	}
-
-	@Override
-	public int getID() {
-		return 0;
-	}
-
-	@Override
-	public List<Integer> getPointers() {
-		return List.of();
-	}
-}
-
+//package com.hydrozoa.pokemon.dialogue;
+//
+//import java.util.Arrays;
+//import java.util.List;
+//
 //public class ChoiceDialogueNode implements DialogueNode {
 //
 //	private String text;
+//	private String[] labels;
+//	private int[] nodeIds;
 //	private int id;
 //
-//	private List<Integer> pointers = new ArrayList<Integer>();
-//	private List<String> labels = new ArrayList<String>();
-//
-//	public ChoiceDialogueNode(String text, int id) {
+//	public ChoiceDialogueNode(String text, String[] labels, int[] nodeIds, int id) {
 //		this.text = text;
+//		this.labels = labels;
+//		this.nodeIds = nodeIds;
 //		this.id = id;
 //	}
 //
-//	public void addChoice(String text, int targetId) {
-//		pointers.add(targetId);
-//		labels.add(text);
-//	}
-//
+//	@Override
 //	public String getText() {
 //		return text;
+//	}
+//
+//	public String[] getLabels() {
+//		return labels;
+//	}
+//
+//	public int[] getNodeIds() {
+//		return nodeIds;
 //	}
 //
 //	@Override
@@ -68,11 +37,42 @@ public class ChoiceDialogueNode implements DialogueNode {
 //
 //	@Override
 //	public List<Integer> getPointers() {
-//		return pointers;
+//		return Arrays.asList(Arrays.stream(nodeIds).boxed().toArray(Integer[]::new));
 //	}
-//
-//	public List<String> getLabels() {
-//		return labels;
-//	}
-//
 //}
+
+package com.hydrozoa.pokemon.dialogue;
+
+public class ChoiceDialogueNode extends DialogueNode {
+
+	private String text;
+	private String[] labels;
+	private int[] pointers;
+	private int id;
+
+	public ChoiceDialogueNode(String text, String[] labels, int[] pointers, int id) {
+		this.text = text;
+		this.labels = labels;
+		this.pointers = pointers;
+		this.id = id;
+	}
+
+	@Override
+	public String getText() {
+		return text;
+	}
+
+	@Override
+	public int getID() {
+		return id;
+	}
+
+	@Override
+	public int[] getPointers() {
+		return pointers;
+	}
+
+	public String[] getLabels() {
+		return labels;
+	}
+}

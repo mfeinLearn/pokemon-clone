@@ -15,10 +15,13 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.hydrozoa.pokemon.PokemonGame;
+import com.hydrozoa.pokemon.battle.Battle;
+import com.hydrozoa.pokemon.battle.event.BattleEvent;
 import com.hydrozoa.pokemon.controller.ActorMovementController;
 import com.hydrozoa.pokemon.controller.DialogueController;
 import com.hydrozoa.pokemon.controller.InteractionController;
 import com.hydrozoa.pokemon.controller.OptionBoxController;
+import com.hydrozoa.pokemon.controller.BattleScreenController; // Updated import
 import com.hydrozoa.pokemon.dialogue.ChoiceDialogueNode;
 import com.hydrozoa.pokemon.dialogue.Dialogue;
 import com.hydrozoa.pokemon.dialogue.LinearDialogueNode;
@@ -37,11 +40,13 @@ import com.hydrozoa.pokemon.screen.renderer.WorldRenderer;
 import com.hydrozoa.pokemon.screen.transition.FadeInTransition;
 import com.hydrozoa.pokemon.screen.transition.FadeOutTransition;
 import com.hydrozoa.pokemon.ui.DialogueBox;
+import com.hydrozoa.pokemon.ui.MoveSelectBox;
 import com.hydrozoa.pokemon.ui.OptionBox;
 import com.hydrozoa.pokemon.util.Action;
 import com.hydrozoa.pokemon.util.AnimationSet;
 import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.LinkedList; // Added for queue
 import java.util.Queue;
 import java.util.Random;
 
@@ -79,6 +84,7 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 	private DialogueBox dialogueBox;
 	private OptionBox optionsBox;
 	private OptionBox debugBox;
+	private BattleScreenController battleController; // Updated field
 
 	public GameScreen(PokemonGame app) {
 		super(app);
@@ -108,13 +114,10 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 				new Animation(0.25f/2f, atlas.findRegions("brendan_run_east"), PlayMode.LOOP_PINGPONG),
 				new Animation(0.25f/2f, atlas.findRegions("brendan_run_west"), PlayMode.LOOP_PINGPONG));
 
-		// Initialize UI before creating dialogueController
 		initUI();
 
-		// Create dialogueController after UI initialization
-		dialogueController = new DialogueController(dialogueBox, optionsBox);
+		dialogueController = new DialogueController(dialogueBox, optionsBox, this);
 
-		// Load worlds and set DialogueController
 		Array<World> loadedWorlds = app.getAssetManager().getAll(World.class, new Array<World>());
 		for (World w : loadedWorlds) {
 			w.setDialogueController(dialogueController);
@@ -125,25 +128,26 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 		camera = new Camera();
 		player = new PlayerActor(world, world.getSafeX(), world.getSafeY(), playerAnimations, this);
 		world.addActor(player);
-// :)
-// Create NPC with same animations as player
+
+		// Create NPC with same animations as player
 		Actor npc = new Actor(world, world.getSafeX(), world.getSafeY() + 1, playerAnimations);
 		Dialogue dialogue = new Dialogue();
-		LinearDialogueNode node1 = new LinearDialogueNode("Hello, trainer! Ready to talk?", 1);
-		ChoiceDialogueNode node2 = new ChoiceDialogueNode("Want to battle?", new String[]{"Yes", "No"}, new int[]{2, 3});
-		LinearDialogueNode node3 = new LinearDialogueNode("Great! Let's battle!", 0);
-		LinearDialogueNode node4 = new LinearDialogueNode("Maybe next time.", 0);
+		LinearDialogueNode node1 = new LinearDialogueNode("Hello, trainer! Ready to talk?", 0, 1);
+		ChoiceDialogueNode node2 = new ChoiceDialogueNode("Want to battle?", new String[]{"Yes", "No", "Ok, I'll be back soon!"}, new int[]{2, 3, 4}, 1);
+		LinearDialogueNode node3 = new LinearDialogueNode("Great! Let's battle!", 2, -1);
+		LinearDialogueNode node4 = new LinearDialogueNode("Maybe next time.", 3, -1);
+		LinearDialogueNode node5 = new LinearDialogueNode("Alright, see you soon!", 4, -1);
 		dialogue.addNode(node1);
 		dialogue.addNode(node2);
 		dialogue.addNode(node3);
 		dialogue.addNode(node4);
+		dialogue.addNode(node5);
 		npc.setDialogue(dialogue);
-		npc.refaceWithoutAnimation(DIRECTION.SOUTH); // Face south for testing
+		npc.refaceWithoutAnimation(DIRECTION.SOUTH);
 		world.addActor(npc, new LimitedWalkingBehavior(npc, 2, 2, 2, 2, 1f, 3f, new Random(), dialogueController));
 
 		multiplexer = new InputMultiplexer();
-
-		playerController = new ActorMovementController(player);
+		playerController = new ActorMovementController(player); // Fixed: single parameter
 		interactionController = new InteractionController(player, dialogueController);
 		debugController = new OptionBoxController(debugBox);
 		debugController.addAction(new Action() {
