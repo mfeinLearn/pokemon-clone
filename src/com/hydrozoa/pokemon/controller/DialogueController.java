@@ -81,6 +81,10 @@ public class DialogueController extends InputAdapter {
 			}
 		}
 	}
+
+	public boolean isDialogueActive() {
+		return dialogueBox.isVisible();
+	}
 	
 	public void startDialogue(Dialogue dialogue) {
 		traverser = new DialogueTraverser(dialogue);

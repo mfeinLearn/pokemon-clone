@@ -3,6 +3,7 @@ package com.hydrozoa.pokemon.model.actor;
 import java.util.Random;
 
 import com.badlogic.gdx.math.GridPoint2;
+import com.hydrozoa.pokemon.controller.DialogueController;
 import com.hydrozoa.pokemon.model.DIRECTION;
 import com.hydrozoa.pokemon.model.actor.Actor.MOVEMENT_STATE;
 
@@ -23,7 +24,9 @@ public class LimitedWalkingBehavior extends ActorBehavior {
 	private GridPoint2 moveDelta;
 	private int limNorth, limSouth, limEast, limWest;
 
-	public LimitedWalkingBehavior(Actor actor, int limNorth, int limSouth, int limEast, int limWest, float moveIntervalMinimum, float moveIntervalMaximum, Random random) {
+	private DialogueController dialogueController; // Add reference
+
+	public LimitedWalkingBehavior(Actor actor, int limNorth, int limSouth, int limEast, int limWest, float moveIntervalMinimum, float moveIntervalMaximum, Random random, DialogueController dialogueController) {
 		super(actor);
 		this.limNorth = limNorth;
 		this.limSouth = limSouth;
@@ -35,10 +38,14 @@ public class LimitedWalkingBehavior extends ActorBehavior {
 		this.timer = 0f;
 		this.currentWaitTime = calculateWaitTime();
 		this.moveDelta = new GridPoint2();
+		this.dialogueController = dialogueController;
 	}
 
 	@Override
 	public void update(float delta) {
+		if (dialogueController.isDialogueActive()) {
+			return; // Don't move if dialogue is active
+		}
 		if (getActor().getMovementState() != MOVEMENT_STATE.STILL) {
 			return;
 		}

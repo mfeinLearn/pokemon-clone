@@ -1,9 +1,5 @@
 package com.hydrozoa.pokemon.screen;
 
-import java.util.ArrayDeque;
-import java.util.HashMap;
-import java.util.Queue;
-
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.InputMultiplexer;
@@ -23,9 +19,13 @@ import com.hydrozoa.pokemon.controller.ActorMovementController;
 import com.hydrozoa.pokemon.controller.DialogueController;
 import com.hydrozoa.pokemon.controller.InteractionController;
 import com.hydrozoa.pokemon.controller.OptionBoxController;
+import com.hydrozoa.pokemon.dialogue.ChoiceDialogueNode;
 import com.hydrozoa.pokemon.dialogue.Dialogue;
+import com.hydrozoa.pokemon.dialogue.LinearDialogueNode;
 import com.hydrozoa.pokemon.model.Camera;
 import com.hydrozoa.pokemon.model.DIRECTION;
+import com.hydrozoa.pokemon.model.actor.Actor;
+import com.hydrozoa.pokemon.model.actor.LimitedWalkingBehavior;
 import com.hydrozoa.pokemon.model.actor.PlayerActor;
 import com.hydrozoa.pokemon.model.world.World;
 import com.hydrozoa.pokemon.model.world.cutscene.ActorWalkEvent;
@@ -40,42 +40,42 @@ import com.hydrozoa.pokemon.ui.DialogueBox;
 import com.hydrozoa.pokemon.ui.OptionBox;
 import com.hydrozoa.pokemon.util.Action;
 import com.hydrozoa.pokemon.util.AnimationSet;
+import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Queue;
+import java.util.Random;
 
-/**
- * @author hydrozoa
- */
 public class GameScreen extends AbstractScreen implements CutscenePlayer {
-	
+
 	private InputMultiplexer multiplexer;
 	private DialogueController dialogueController;
 	private ActorMovementController playerController;
 	private InteractionController interactionController;
 	private OptionBoxController debugController;
-	
+
 	private HashMap<String, World> worlds = new HashMap<String, World>();
 	private World world;
 	private PlayerActor player;
 	private Camera camera;
 	private Dialogue dialogue;
-	
-	/* cutscenes */
+
 	private Queue<CutsceneEvent> eventQueue = new ArrayDeque<CutsceneEvent>();
 	private CutsceneEvent currentEvent;
-	
+
 	private SpriteBatch batch;
-	
+
 	private Viewport gameViewport;
-	
+
 	private WorldRenderer worldRenderer;
-	private EventQueueRenderer queueRenderer; // renders cutscenequeue
+	private EventQueueRenderer queueRenderer;
 	private TileInfoRenderer tileInfoRenderer;
 	private boolean renderTileInfo = false;
-	
+
 	private int uiScale = 2;
-	
+
 	private Stage uiStage;
-	private Table dialogRoot;	// root table used for dialogues
-	private Table menuRoot;		// root table used for menus (i.e. debug menu)
+	private Table dialogRoot;
+	private Table menuRoot;
 	private DialogueBox dialogueBox;
 	private OptionBox optionsBox;
 	private OptionBox debugBox;
@@ -84,10 +84,10 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 		super(app);
 		gameViewport = new ScreenViewport();
 		batch = new SpriteBatch();
-		
+
 		TextureAtlas atlas = app.getAssetManager().get("res/graphics_packed/tiles/tilepack.atlas", TextureAtlas.class);
-		
-		AnimationSet animations = new AnimationSet(
+
+		AnimationSet playerAnimations = new AnimationSet(
 				new Animation(0.4f/2f, atlas.findRegions("brendan_walk_north"), PlayMode.LOOP_PINGPONG),
 				new Animation(0.4f/2f, atlas.findRegions("brendan_walk_south"), PlayMode.LOOP_PINGPONG),
 				new Animation(0.4f/2f, atlas.findRegions("brendan_walk_east"), PlayMode.LOOP_PINGPONG),
@@ -97,33 +97,53 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 				atlas.findRegion("brendan_stand_east"),
 				atlas.findRegion("brendan_stand_west")
 		);
-		animations.addBiking(
-				new Animation(0.4f/2f, atlas.findRegions("brendan_bike_north"), PlayMode.LOOP_PINGPONG), 
-				new Animation(0.4f/2f, atlas.findRegions("brendan_bike_south"), PlayMode.LOOP_PINGPONG), 
-				new Animation(0.4f/2f, atlas.findRegions("brendan_bike_east"), PlayMode.LOOP_PINGPONG), 
+		playerAnimations.addBiking(
+				new Animation(0.4f/2f, atlas.findRegions("brendan_bike_north"), PlayMode.LOOP_PINGPONG),
+				new Animation(0.4f/2f, atlas.findRegions("brendan_bike_south"), PlayMode.LOOP_PINGPONG),
+				new Animation(0.4f/2f, atlas.findRegions("brendan_bike_east"), PlayMode.LOOP_PINGPONG),
 				new Animation(0.4f/2f, atlas.findRegions("brendan_bike_west"), PlayMode.LOOP_PINGPONG));
-		animations.addRunning(
-				new Animation(0.25f/2f, atlas.findRegions("brendan_run_north"), PlayMode.LOOP_PINGPONG), 
-				new Animation(0.25f/2f, atlas.findRegions("brendan_run_south"), PlayMode.LOOP_PINGPONG), 
-				new Animation(0.25f/2f, atlas.findRegions("brendan_run_east"), PlayMode.LOOP_PINGPONG), 
+		playerAnimations.addRunning(
+				new Animation(0.25f/2f, atlas.findRegions("brendan_run_north"), PlayMode.LOOP_PINGPONG),
+				new Animation(0.25f/2f, atlas.findRegions("brendan_run_south"), PlayMode.LOOP_PINGPONG),
+				new Animation(0.25f/2f, atlas.findRegions("brendan_run_east"), PlayMode.LOOP_PINGPONG),
 				new Animation(0.25f/2f, atlas.findRegions("brendan_run_west"), PlayMode.LOOP_PINGPONG));
-		
+
+		// Initialize UI before creating dialogueController
+		initUI();
+
+		// Create dialogueController after UI initialization
+		dialogueController = new DialogueController(dialogueBox, optionsBox);
+
+		// Load worlds and set DialogueController
 		Array<World> loadedWorlds = app.getAssetManager().getAll(World.class, new Array<World>());
 		for (World w : loadedWorlds) {
+			w.setDialogueController(dialogueController);
 			worlds.put(w.getName(), w);
 		}
 		world = worlds.get("littleroot_town");
-		
+
 		camera = new Camera();
-		player = new PlayerActor(world, world.getSafeX(), world.getSafeY(), animations, this);
+		player = new PlayerActor(world, world.getSafeX(), world.getSafeY(), playerAnimations, this);
 		world.addActor(player);
-		
-		initUI();
-		
+
+// Create NPC with same animations as player
+		Actor npc = new Actor(world, world.getSafeX(), world.getSafeY() + 1, playerAnimations);
+		Dialogue dialogue = new Dialogue();
+		LinearDialogueNode node1 = new LinearDialogueNode("Hello, trainer! Ready to talk?", 1);
+		ChoiceDialogueNode node2 = new ChoiceDialogueNode("Want to battle?", new String[]{"Yes", "No"}, new int[]{2, 3});
+		LinearDialogueNode node3 = new LinearDialogueNode("Great! Let's battle!", 0);
+		LinearDialogueNode node4 = new LinearDialogueNode("Maybe next time.", 0);
+		dialogue.addNode(node1);
+		dialogue.addNode(node2);
+		dialogue.addNode(node3);
+		dialogue.addNode(node4);
+		npc.setDialogue(dialogue);
+		npc.refaceWithoutAnimation(DIRECTION.SOUTH); // Face south for testing
+		world.addActor(npc, new LimitedWalkingBehavior(npc, 2, 2, 2, 2, 1f, 3f, new Random(), dialogueController));
+
 		multiplexer = new InputMultiplexer();
-		
+
 		playerController = new ActorMovementController(player);
-		dialogueController = new DialogueController(dialogueBox, optionsBox);
 		interactionController = new InteractionController(player, dialogueController);
 		debugController = new OptionBoxController(debugBox);
 		debugController.addAction(new Action() {
@@ -132,54 +152,92 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 				renderTileInfo = !renderTileInfo;
 			}
 		}, "Toggle show coords");
-		
+
 		multiplexer.addProcessor(0, debugController);
 		multiplexer.addProcessor(1, dialogueController);
 		multiplexer.addProcessor(2, playerController);
 		multiplexer.addProcessor(3, interactionController);
-		
+
 		worldRenderer = new WorldRenderer(getApp().getAssetManager(), world);
 		queueRenderer = new EventQueueRenderer(app.getSkin(), eventQueue);
 		tileInfoRenderer = new TileInfoRenderer(world, camera);
 	}
 
+	private void initUI() {
+		uiStage = new Stage(new ScreenViewport());
+		uiStage.getViewport().update(Gdx.graphics.getWidth()/uiScale, Gdx.graphics.getHeight()/uiScale, true);
+
+		dialogRoot = new Table();
+		dialogRoot.setFillParent(true);
+		uiStage.addActor(dialogRoot);
+
+		dialogueBox = new DialogueBox(getApp().getSkin());
+		dialogueBox.setVisible(false);
+
+		optionsBox = new OptionBox(getApp().getSkin());
+		optionsBox.setVisible(false);
+
+		Table dialogTable = new Table();
+		dialogTable.add(optionsBox)
+				.expand()
+				.align(Align.right)
+				.space(8f)
+				.row();
+		dialogTable.add(dialogueBox)
+				.expand()
+				.align(Align.bottom)
+				.space(8f)
+				.row();
+
+		dialogRoot.add(dialogTable).expand().align(Align.bottom);
+
+		menuRoot = new Table();
+		menuRoot.setFillParent(true);
+		uiStage.addActor(menuRoot);
+
+		debugBox = new OptionBox(getApp().getSkin());
+		debugBox.setVisible(false);
+
+		Table menuTable = new Table();
+		menuTable.add(debugBox).expand().align(Align.top | Align.left);
+
+		menuRoot.add(menuTable).expand().fill();
+	}
+
 	@Override
 	public void dispose() {
-		
 	}
 
 	@Override
 	public void hide() {
-		
 	}
 
 	@Override
 	public void pause() {
-		
 	}
-	
+
 	@Override
 	public void update(float delta) {
-		while (currentEvent == null || currentEvent.isFinished()) { // no active event
-			if (eventQueue.peek() == null) { // no event queued up
+		while (currentEvent == null || currentEvent.isFinished()) {
+			if (eventQueue.peek() == null) {
 				currentEvent = null;
 				break;
-			} else {					// event queued up
+			} else {
 				currentEvent = eventQueue.poll();
 				currentEvent.begin(this);
 			}
 		}
-		
+
 		if (currentEvent != null) {
 			currentEvent.update(delta);
 		}
-			
+
 		if (currentEvent == null) {
 			playerController.update(delta);
 		}
-		
+
 		dialogueController.update(delta);
-		
+
 		if (!dialogueBox.isVisible()) {
 			camera.update(player.getWorldX()+0.5f, player.getWorldY()+0.5f);
 			world.update(delta);
@@ -197,7 +255,7 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 			tileInfoRenderer.render(batch, Gdx.input.getX(), Gdx.input.getY());
 		}
 		batch.end();
-		
+
 		uiStage.draw();
 	}
 
@@ -210,7 +268,6 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 
 	@Override
 	public void resume() {
-		
 	}
 
 	@Override
@@ -220,56 +277,7 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 			currentEvent.screenShow();
 		}
 	}
-	
-	private void initUI() {
-		uiStage = new Stage(new ScreenViewport());
-		uiStage.getViewport().update(Gdx.graphics.getWidth()/uiScale, Gdx.graphics.getHeight()/uiScale, true);
-		//uiStage.setDebugAll(true);		// Uncomment to debug UI
-		
-		/*
-		 * DIALOGUE SETUP
-		 */
-		dialogRoot = new Table();
-		dialogRoot.setFillParent(true);
-		uiStage.addActor(dialogRoot);
-		
-		dialogueBox = new DialogueBox(getApp().getSkin());
-		dialogueBox.setVisible(false);
-		
-		optionsBox = new OptionBox(getApp().getSkin());
-		optionsBox.setVisible(false);
-		
-		Table dialogTable = new Table();
-		dialogTable.add(optionsBox)
-						.expand()
-						.align(Align.right)
-						.space(8f)
-						.row();
-		dialogTable.add(dialogueBox)
-						.expand()
-						.align(Align.bottom)
-						.space(8f)
-						.row();
-		
-		
-		dialogRoot.add(dialogTable).expand().align(Align.bottom);
-		
-		/*
-		 * MENU SETUP
-		 */
-		menuRoot = new Table();
-		menuRoot.setFillParent(true);
-		uiStage.addActor(menuRoot);
-		
-		debugBox = new OptionBox(getApp().getSkin());
-		debugBox.setVisible(false);
-		
-		Table menuTable = new Table();
-		menuTable.add(debugBox).expand().align(Align.top | Align.left);
-		
-		menuRoot.add(menuTable).expand().fill();
-	}
-	
+
 	public void changeWorld(World newWorld, int x, int y, DIRECTION face) {
 		player.changeWorld(newWorld, x, y);
 		this.world = newWorld;
@@ -281,10 +289,10 @@ public class GameScreen extends AbstractScreen implements CutscenePlayer {
 	@Override
 	public void changeLocation(World newWorld, int x, int y, DIRECTION facing, Color color) {
 		getApp().startTransition(
-				this, 
-				this, 
-				new FadeOutTransition(0.8f, color, getApp().getTweenManager(), getApp().getAssetManager()), 
-				new FadeInTransition(0.8f, color, getApp().getTweenManager(), getApp().getAssetManager()), 
+				this,
+				this,
+				new FadeOutTransition(0.8f, color, getApp().getTweenManager(), getApp().getAssetManager()),
+				new FadeInTransition(0.8f, color, getApp().getTweenManager(), getApp().getAssetManager()),
 				new Action() {
 					@Override
 					public void action() {
