@@ -13,7 +13,8 @@ import com.hydrozoa.pokemon.util.AnimationSet;
  * @author hydrozoa
  */
 public class Actor implements YSortable {
-	
+
+	private String name;
 	private World world;
 	private int x;
 	private int y;
@@ -370,5 +371,13 @@ public class Actor implements YSortable {
 	
 	public boolean isVisible() {
 		return visible;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getName() {
+		return name;
 	}
 }
