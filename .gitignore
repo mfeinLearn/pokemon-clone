@@ -1,2 +1,4 @@
 sources.txt
 bin/
+.env
+private_keys.json
